@@ -54,6 +54,7 @@ RESOURCE_FIELDS = {
     "documentation": 1,  # abstract-file
     "workloads": 1,  # suite
     "input-group": 1,  # suite workloads
+    "_id": 0
 }
 
 def create_error_response(status_code: int, message: str) -> func.HttpResponse:
@@ -155,30 +156,42 @@ def get_resources_by_batch(req: func.HttpRequest) -> func.HttpResponse:
 
     Query Parameters:
     - id: Required, can appear multiple times (up to 40)
-    - version: Required, must match number of id parameters and be in same order
+    - version: Optional, must match number of id parameters and be in same order
+               If "None" is passed, all versions of the resource with the corresponding ID will be returned
     """
     logging.info('Processing request to get resources by batch')
     try:
         query_params = parse_qs(req.url.split('?', 1)[1] if '?' in req.url else '')
         ids = [sanitize_id(i) for i in query_params.get('id', [])]
-        versions = [sanitize_version(v) for v in query_params.get('resource_version', [])]
+        versions = [sanitize_version(v) if v.lower() != "none" else None 
+                   for v in query_params.get('resource_version', [])]
 
         # Validate inputs
-        if not ids or not versions or any(i is None for i in ids) or any(v is None for v in versions):
-            return create_error_response(400, "Both 'id' and 'version' parameters are required and must be valid")
+        if not ids or any(i is None for i in ids):
+            return create_error_response(400, "At least one valid 'id' parameter is required")
 
-        if len(ids) != len(versions):
+        if len(versions) > 0 and len(ids) != len(versions):
             return create_error_response(400, "Number of 'id' parameters must match number of 'version' parameters")
+        
+        # If no versions provided, set them all to None
+        if not versions:
+            versions = [None] * len(ids)
 
         # Create a list of queries for MongoDB $or operator
-        queries = [{"id": id, "resource_version": version} for id, version in zip(ids, versions)]
+        queries = []
+        for id, version in zip(ids, versions):
+            if version is None:
+                # If version is None, find all resources with this id
+                queries.append({"id": id})
+            else:
+                # Otherwise, find the specific version
+                queries.append({"id": id, "resource_version": version})
 
         resources = list(collection.find({"$or": queries}, RESOURCE_FIELDS))
 
-        # Check if all requested resources were found
-        if len(resources) != len(ids):
-            # Could be more specific about which resources were not found
-            return create_error_response(404, "One or more requested resources were not found")
+        # Check if any resources were found
+        if not resources:
+            return create_error_response(404, "No requested resources were found")
 
         return func.HttpResponse(
             body=json.dumps(resources),
