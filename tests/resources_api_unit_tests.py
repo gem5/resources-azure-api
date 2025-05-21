@@ -57,7 +57,6 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         query_string = "&".join([f"id={id}&resource_version={version}" for id, version in resource_pairs])
         url = f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
         response = requests.get(url)
-        print(response.json())
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
@@ -77,7 +76,6 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         query_string = "&".join([f"id={id}&resource_version={version}" for id, version in resource_pairs])
         url = f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
         response = requests.get(url)
-
         self.assertEqual(response.status_code, 404)
 
     def test_search_basic_contains_str(self):
