@@ -41,15 +41,15 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_get_resource_by_id_valid_id_invalid_version(self):
-        """Test retrieving a resource whose id exists but hte version doesnt exist."""
+        """Test retrieving a resource whose id exists but the version doesn't exist."""
         resource_id = "arm-hello64-static"
         resource_version = "1.1.1"
         response = requests.get(f"{self.base_url}/resources/find-resource-by-id", params={"id": resource_id, "resource_version": resource_version})
         self.assertEqual(response.json()["error"], f"Resource with ID '{resource_id}' not found")
         self.assertEqual(response.status_code, 404)
 
-    def test_get_resources_by_batch(self):
-        """Test retrieving multiple resources by batch with correct id-version pairing."""
+    def test_get_resources_by_batch_with_specific_versions(self):
+        """Test retrieving multiple resources by batch with specific versions."""
         resource_pairs = [
             ("riscv-ubuntu-20.04-boot", "3.0.0"),
             ("arm-hello64-static", "1.0.0")
@@ -61,13 +61,50 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         data = response.json()
         self.assertIsInstance(data, list)
         self.assertEqual(len(data), 2)
-        self.assertEqual(data[1]["id"], "riscv-ubuntu-20.04-boot")
-        self.assertEqual(data[1]["resource_version"], "3.0.0")
-        self.assertEqual(data[0]["id"], "arm-hello64-static")
-        self.assertEqual(data[0]["resource_version"], "1.0.0")
+        
+        # Verify each resource is present
+        found_resources = {(r["id"], r["resource_version"]) for r in data}
+        expected_resources = set(resource_pairs)
+        self.assertEqual(found_resources, expected_resources)
 
+    def test_get_resources_by_batch_with_none_versions(self):
+        """Test retrieving multiple resources by batch with None versions (all versions)."""
+        resource_ids = ["riscv-ubuntu-20.04-boot", "arm-hello64-static"]
+        query_string = "&".join([f"id={id}&resource_version=None" for id in resource_ids])
+        url = f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
+        response = requests.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertGreater(len(data), 0)
+        
+        # Verify all requested IDs are present
+        found_ids = {r["id"] for r in data}
+        expected_ids = set(resource_ids)
+        self.assertEqual(found_ids, expected_ids)
 
-    def test_get_resources_by_batch_not_found(self):
+    def test_get_resources_by_batch_mixed_versions(self):
+        """Test batch retrieval with mix of specific versions and None."""
+        params = {
+            "id": ["riscv-ubuntu-20.04-boot", "arm-hello64-static"],
+            "resource_version": ["3.0.0", "None"]
+        }
+        response = requests.get(f"{self.base_url}/resources/find-resources-in-batch", params=params)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertGreater(len(data), 0)
+        
+        # Verify both IDs are present
+        found_ids = {r["id"] for r in data}
+        self.assertIn("riscv-ubuntu-20.04-boot", found_ids)
+        self.assertIn("arm-hello64-static", found_ids)
+        
+        # Verify specific version constraint
+        riscv_resources = [r for r in data if r["id"] == "riscv-ubuntu-20.04-boot"]
+        self.assertTrue(all(r["resource_version"] == "3.0.0" for r in riscv_resources))
+
+    def test_get_resources_by_batch_not_found_partial(self):
         """Test batch retrieval where one or more resources are missing."""
         resource_pairs = [
             ("arm-hello64-static", "1.0.0"),
@@ -77,6 +114,88 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         url = f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
         response = requests.get(url)
         self.assertEqual(response.status_code, 404)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("non-existent", data["error"])
+
+    def test_get_resources_by_batch_not_found_all(self):
+        """Test batch retrieval where all resources are missing."""
+        resource_pairs = [
+            ("non-existent-1", "1.0.0"),
+            ("non-existent-2", "2.0.0")
+        ]
+        query_string = "&".join([f"id={id}&resource_version={version}" for id, version in resource_pairs])
+        url = f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
+        response = requests.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_get_resources_by_batch_mismatched_parameters(self):
+        """Test batch retrieval with mismatched number of id and version parameters."""
+        url = f"{self.base_url}/resources/find-resources-in-batch?id=arm-hello64-static&id=riscv-ubuntu-20.04-boot&resource_version=1.0.0"
+        response = requests.get(url)
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("corresponding", data["error"])
+
+    def test_get_resources_by_batch_no_version_parameters(self):
+        """Test batch retrieval without any version parameters (should fail)."""
+        url = f"{self.base_url}/resources/find-resources-in-batch?id=arm-hello64-static&id=riscv-ubuntu-20.04-boot"
+        response = requests.get(url)
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("corresponding", data["error"])
+
+    def test_get_resources_by_batch_valid_id_invalid_version(self):
+        """Test batch retrieval with valid ID but invalid version."""
+        resource_pairs = [
+            ("arm-hello64-static", "1.0.0"),  # Valid
+            ("riscv-ubuntu-20.04-boot", "99.99.99")  # Invalid version
+        ]
+        query_string = "&".join([f"id={id}&resource_version={version}" for id, version in resource_pairs])
+        url = f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
+        response = requests.get(url)
+        self.assertEqual(response.status_code, 404)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("riscv-ubuntu-20.04-boot", data["error"])
+
+    # FILTER ENDPOINT TESTS
+    def test_get_filters(self):
+        """Test retrieving filter values."""
+        response = requests.get(f"{self.base_url}/resources/filters")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Verify structure
+        self.assertIn("category", data)
+        self.assertIn("architecture", data)
+        self.assertIn("gem5_versions", data)
+        
+        # Verify types
+        self.assertIsInstance(data["category"], list)
+        self.assertIsInstance(data["architecture"], list)
+        self.assertIsInstance(data["gem5_versions"], list)
+
+    def test_get_filters_content_validation(self):
+        """Test that filter values contain expected content."""
+        response = requests.get(f"{self.base_url}/resources/filters")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Check that gem5_versions are sorted in reverse order (newest first)
+        if len(data["gem5_versions"]) > 1:
+            versions = data["gem5_versions"]
+            for i in range(len(versions) - 1):
+                # Assuming semantic versioning, newer versions should come first
+                self.assertGreaterEqual(versions[i], versions[i + 1])
+        
+        # Check that categories and architectures are sorted
+        if data["category"]:
+            self.assertEqual(data["category"], sorted(data["category"]))
+        if data["architecture"]:
+            self.assertEqual(data["architecture"], sorted(data["architecture"]))
 
     def test_search_basic_contains_str(self):
         """Test basic search with a contains-str parameter."""
@@ -199,14 +318,6 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         # Expecting a 400 Bad Request for invalid filter format
         self.assertEqual(response.status_code, 400)
 
-    # def test_search_missing_required_parameter(self):
-    #     """Test search without the required contains-str parameter."""
-    #     params = {}
-    #     response = requests.get(f"{self.base_url}/resources/search", params=params)
-
-    #     # Expecting a 400 Bad Request for missing required parameter
-    #     self.assertEqual(response.status_code, 400)
-
     def test_search_case_insensitive(self):
         """Test that search is case insensitive."""
         params1 = {
@@ -248,6 +359,36 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         for resource in resources:
             gem5_versions = set(resource["gem5_versions"])
             self.assertTrue(len({"22.0", "23.0"}.intersection(gem5_versions)) > 0)
+
+    # EDGE CASE AND STRESS TESTS
+    def test_search_with_special_characters(self):
+        """Test search with special characters in the search string."""
+        params = {
+            "contains-str": "test-resource_with.special-chars"
+        }
+        response = requests.get(f"{self.base_url}/resources/search", params=params)
+        self.assertEqual(response.status_code, 200)  # Should not crash
+
+    def test_search_with_very_long_string(self):
+        """Test search with a very long contains-str parameter."""
+        params = {
+            "contains-str": "a" * 1000  # Very long string
+        }
+        response = requests.get(f"{self.base_url}/resources/search", params=params)
+        self.assertEqual(response.status_code, 200)  # Should handle gracefully
+
+    def test_batch_with_maximum_resources(self):
+        """Test batch retrieval with a reasonable number of resources (stress test)."""
+        # Create 10 resource requests 
+        resource_ids = ["arm-hello64-static"] * 10
+        versions = ["1.0.0"] * 10
+        
+        params = {
+            "id": resource_ids,
+            "resource_version": versions
+        }
+        response = requests.get(f"{self.base_url}/resources/find-resources-in-batch", params=params)
+        self.assertEqual(response.status_code, 200)
 
 
 if __name__ == "__main__":

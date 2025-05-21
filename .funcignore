@@ -6,3 +6,5 @@ __queuestorage__
 local.settings.json
 test
 .venv
+.env
+update_filter_view.py
