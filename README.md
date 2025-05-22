@@ -28,45 +28,7 @@ The API integrates with MongoDB to deliver:
 
 ## API Endpoints
 
-### 1. Get Resource by ID
-
-**Endpoint**: `GET /api/resources/find-resource-by-id`
-
-Retrieve a specific gem5 resource by its identifier, with optional version filtering.
-
-**Parameters**:
-
-- `id` (required): Resource identifier (alphanumeric, dash, underscore, dot)
-- `resource_version` (optional): Specific semantic version (e.g., "1.0.0")
-
-**Examples**:
-
-```bash
-# Get all versions of a resource
-GET /api/resources/find-resource-by-id?id=riscv-ubuntu-20.04-boot
-
-# Get specific version
-GET /api/resources/find-resource-by-id?id=arm-hello64-static&resource_version=1.0.0
-```
-
-**Response Format**:
-
-```json
-[
-  {
-    "id": "arm-hello64-static",
-    "resource_version": "1.0.0",
-    "category": "binary",
-    "architecture": "ARM",
-    "description": "A simple hello world executable for ARM64",
-    "gem5_versions": ["22.0", "23.0"],
-    "tags": ["hello-world", "test"],
-    "database": "gem5-vision"
-  }
-]
-```
-
-### 2. Batch Resource Retrieval
+### 1. Batch Resource Retrieval
 
 **Endpoint**: `GET /api/resources/find-resources-in-batch`
 
@@ -93,7 +55,7 @@ GET /api/resources/find-resources-in-batch?id=riscv-ubuntu-20.04-boot&resource_v
 - Use `resource_version=None` to retrieve all versions of a resource
 - Returns 404 if any requested resource is missing
 
-### 3. Advanced Resource Search
+### 2. Advanced Resource Search
 
 **Endpoint**: `GET /api/resources/search`
 
@@ -148,7 +110,7 @@ GET /api/resources/search?contains-str=hello&sort=date
 }
 ```
 
-### 4. Get Filter Options
+### 3. Get Filter Options
 
 **Endpoint**: `GET /api/resources/filters`
 
@@ -170,7 +132,7 @@ Retrieve available filter options for search functionality. Uses cached data fro
 - gem5_versions are sorted in descending order (newest first)
 - Includes fallback to real-time aggregation if cached data unavailable
 
-### 5. Get Dependent Workloads
+### 4. Get Dependent Workloads
 
 **Endpoint**: `GET /api/resources/get-dependent-workloads`
 
@@ -250,7 +212,6 @@ Create `local.settings.json`:
 gem5-resources-api/
 ├── function_app.py              # Main app initialization
 ├── functions/                   # Individual function modules. Each file inside functions/ registers its route via a shared FunctionApp instance.
-│   ├── get_resource_by_id.py
 │   ├── get_resources_by_batch.py
 │   ├── search_resources.py
 │   ├── get_filters.py
@@ -278,7 +239,6 @@ Expected output:
 
 ```bash
 Functions:
-    get_resource_by_id: [GET] http://localhost:7071/api/resources/find-resource-by-id
     get_resources_by_batch: [GET] http://localhost:7071/api/resources/find-resources-in-batch  
     search_resources: [GET] http://localhost:7071/api/resources/search
     get_filters: [GET] http://localhost:7071/api/resources/filters

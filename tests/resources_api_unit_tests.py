@@ -10,44 +10,6 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         """Set up the API base URL before running tests."""
         cls.base_url = os.getenv("API_BASE_URL", "http://localhost:7071/api")
 
-    def test_get_resource_by_id(self):
-        """Test retrieving a resource by ID."""
-        resource_id = "riscv-ubuntu-20.04-boot"
-        response = requests.get(f"{self.base_url}/resources/find-resource-by-id", params={"id": resource_id})
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
-        self.assertGreater(len(data), 0)
-        self.assertEqual(data[0]["id"], resource_id)
-
-    def test_get_resource_by_id_with_version(self):
-        """Test retrieving a specific version of a resource."""
-        resource_id = "arm-hello64-static"
-        resource_version = "1.0.0"
-        response = requests.get(f"{self.base_url}/resources/find-resource-by-id", params={"id": resource_id, "resource_version": resource_version})
-
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["id"], resource_id)
-        self.assertEqual(data[0]["resource_version"], resource_version)
-
-    def test_get_resource_by_id_not_found(self):
-        """Test retrieving a resource that does not exist."""
-        resource_id= "non-existent-resource"
-        response = requests.get(f"{self.base_url}/resources/find-resource-by-id",  params={"id": resource_id})
-        self.assertEqual(response.json()["error"], f"Resource with ID '{resource_id}' not found")
-        self.assertEqual(response.status_code, 404)
-
-    def test_get_resource_by_id_valid_id_invalid_version(self):
-        """Test retrieving a resource whose id exists but the version doesn't exist."""
-        resource_id = "arm-hello64-static"
-        resource_version = "1.1.1"
-        response = requests.get(f"{self.base_url}/resources/find-resource-by-id", params={"id": resource_id, "resource_version": resource_version})
-        self.assertEqual(response.json()["error"], f"Resource with ID '{resource_id}' not found")
-        self.assertEqual(response.status_code, 404)
-
     def test_get_resources_by_batch_with_specific_versions(self):
         """Test retrieving multiple resources by batch with specific versions."""
         resource_pairs = [
