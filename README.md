@@ -1,82 +1,429 @@
-# Azure Function with MongoDB Integration
+# gem5 Resources API
 
 ## Overview
 
-This document provides step-by-step instructions for setting up, running, and testing an Azure Function that queries a MongoDB database.
+The gem5 Resources API is a comprehensive Azure Functions-based service that provides access to the gem5 resource database, which includes prebuilt disk images, kernel binaries, workloads, and microbenchmarks commonly used with the gem5 simulator.
 
-## Setting Up the Environment
+The API integrates with MongoDB to deliver:
 
-### 1️ **Create a Virtual Environment**
+- **Resource Discovery**: Find resources by ID with version control
+- **Batch Operations**: Retrieve multiple resources efficiently
+- **Advanced Search**: Full-text search with filtering and pagination
+- **Dependency Analysis**: Find workloads that depend on specific resources
+- **Filter Management**: Dynamic filter options for enhanced resource discovery
 
-Create a virtual environment:
+## Architecture
+
+### Technology Stack
+
+- **Runtime**: Azure Functions (Python 3.8+)
+- **Database**: MongoDB with Atlas Search
+- **Authentication**: Anonymous access for all current endpoints (no API key required); support for secured endpoints can be added if needed in future deployments.
+- **Caching**: Materialized views for filter data
+
+### Database Collections
+
+- **`resources`**: Main collection containing gem5 resources
+- **`filter_values`**: Materialized view for cached filter options (updated daily via GitHub Actions)
+
+## API Endpoints
+
+### 1. Get Resource by ID
+
+**Endpoint**: `GET /api/resources/find-resource-by-id`
+
+Retrieve a specific gem5 resource by its identifier, with optional version filtering.
+
+**Parameters**:
+
+- `id` (required): Resource identifier (alphanumeric, dash, underscore, dot)
+- `resource_version` (optional): Specific semantic version (e.g., "1.0.0")
+
+**Examples**:
+
+```bash
+# Get all versions of a resource
+GET /api/resources/find-resource-by-id?id=riscv-ubuntu-20.04-boot
+
+# Get specific version
+GET /api/resources/find-resource-by-id?id=arm-hello64-static&resource_version=1.0.0
+```
+
+**Response Format**:
+
+```json
+[
+  {
+    "id": "arm-hello64-static",
+    "resource_version": "1.0.0",
+    "category": "binary",
+    "architecture": "ARM",
+    "description": "A simple hello world executable for ARM64",
+    "gem5_versions": ["22.0", "23.0"],
+    "tags": ["hello-world", "test"],
+    "database": "gem5-vision"
+  }
+]
+```
+
+### 2. Batch Resource Retrieval
+
+**Endpoint**: `GET /api/resources/find-resources-in-batch`
+
+Retrieve multiple resources in a single request with version control support.
+
+**Parameters**:
+
+- `id` (required, multiple): Resource identifiers (up to 40)
+- `resource_version` (required, multiple): Corresponding versions or "None" for all versions
+
+**Examples**:
+
+```bash
+# Get specific versions of multiple resources
+GET /api/resources/find-resources-in-batch?id=riscv-ubuntu-20.04-boot&resource_version=3.0.0&id=arm-hello64-static&resource_version=1.0.0
+
+# Mixed version requests (specific + all versions)
+GET /api/resources/find-resources-in-batch?id=riscv-ubuntu-20.04-boot&resource_version=3.0.0&id=arm-hello64-static&resource_version=None
+```
+
+**Notes**:
+
+- Each `id` parameter must have a corresponding `resource_version` parameter
+- Use `resource_version=None` to retrieve all versions of a resource
+- Returns 404 if any requested resource is missing
+
+### 3. Advanced Resource Search
+
+**Endpoint**: `GET /api/resources/search`
+
+Powerful search functionality with MongoDB Atlas Search integration, filtering, and pagination.
+
+**Parameters**:
+
+- `contains-str` (optional): Search term (searches across id, description, category, architecture, tags)
+- `must-include` (optional): Filter criteria in format `field,value1,value2;field2,value1`. The `must-include` param expects semicolon-separated `field,value` groups. Each field may include multiple comma-separated values. Multiple fields are ANDed, multiple values within a field are ORed.
+- `sort` (optional): Sort order (`date`, `name`, `version`, `id_asc`, `id_desc`, default: relevance score)
+- `page` (optional): Page number (default: 1)
+- `page-size` (optional): Results per page (1-100, default: 10)
+
+**Supported Filter Fields**:
+
+- `category`: Resource category (workload, binary, etc.)
+- `architecture`: System architecture (ARM, RISCV, x86, etc.)
+- `gem5_versions`: Compatible gem5 versions
+- `tags`: Resource tags
+
+**Examples**:
+
+```bash
+# Basic search
+GET /api/resources/search?contains-str=ubuntu
+
+# Search with single filter
+GET /api/resources/search?contains-str=boot&must-include=architecture,x86
+
+# Multiple filters with pagination
+GET /api/resources/search?contains-str=ubuntu&must-include=category,workload;architecture,RISCV&page=1&page-size=20
+
+# Sorted results
+GET /api/resources/search?contains-str=hello&sort=date
+```
+
+**Response Format**:
+
+```json
+{
+  "documents": [
+    {
+      "id": "resource-id",
+      "resource_version": "1.0.0",
+      "score": 12.5,
+      "latest_version": "1.2.0",
+      "database": "gem5-vision",
+      // ... other resource fields
+    }
+  ],
+  "totalCount": 150
+}
+```
+
+### 4. Get Filter Options
+
+**Endpoint**: `GET /api/resources/filters`
+
+Retrieve available filter options for search functionality. Uses cached data from materialized views updated daily.
+
+**Response Format**:
+
+```json
+{
+  "category": ["binary", "workload", "kernel", "disk-image"],
+  "architecture": ["ARM", "RISCV", "x86"],
+  "gem5_versions": ["24.0", "23.1", "23.0", "22.1", "22.0"]
+}
+```
+
+**Notes**:
+
+- Categories and architectures are sorted alphabetically
+- gem5_versions are sorted in descending order (newest first)
+- Includes fallback to real-time aggregation if cached data unavailable
+
+### 5. Get Dependent Workloads
+
+**Endpoint**: `GET /api/resources/get-dependent-workloads`
+
+Find workloads that depend on a specified resource ID.
+
+**Parameters**:
+
+- `id` (required): The resource ID to find dependencies for
+
+**Example**:
+
+```bash
+GET /api/resources/get-dependent-workloads?id=x86-ubuntu-18.04-img
+```
+
+**Response Format**:
+
+```json
+[
+  {
+    "_id": "boot-exit-workload"
+  },
+  {
+    "_id": "spec-2017-workload"
+  }
+]
+```
+
+## Development Setup
+
+### Prerequisites
+
+- **Python**: 3.8+ (Azure Functions does not support Python 3.13)
+- **Node.js**: Required for Azure Functions Core Tools
+- **MongoDB**: Access to gem5 resources database
+- **Azure Functions Core Tools**: v4.x
+
+### Environment Setup
+
+1. **Create Virtual Environment**:
 
 ```bash
 python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 ```
 
-### 2️ **Activate the Virtual Environment**
-
-Activate the virtual environment:
-
-```bash
-source venv/bin/activate  # On Windows, use venv\Scripts\activate
-```
-
-### 3️ **Install Dependencies**
-
-Install all required dependencies using the `requirements.txt` file.
-Azure Functions does not support Python 3.13 yet.
+2. **Install Dependencies**:
 
 ```bash
 pip install -r requirements.txt
 npm install -g azure-functions-core-tools@4 --unsafe-perm true
 ```
 
-## Running the Azure Function
+3. **Configuration**:
 
-### 1️ **Set Environment Variables**
-
-Create the `local.settings.json` file. Ensure that the file contains the correct MongoDB connection string:
+Create `local.settings.json`:
 
 ```json
 {
   "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "MONGO_CONNECTION_STRING": "mongodb+srv://username:password@cluster0.mongodb.net/myDatabase?retryWrites=true&w=majority",
+    "MONGO_CONNECTION_STRING": "mongodb+srv://user:pass@cluster.mongodb.net/gem5-resources?retryWrites=true&w=majority",
     "FUNCTIONS_WORKER_RUNTIME": "python"
   }
 }
 ```
 
-### 2️ **Run the Azure Function Locally**
+**Required Environment Variables**:
 
-Start the Azure Function locally:
+- `MONGO_CONNECTION_STRING`: MongoDB Atlas connection string
+- `API_BASE_URL`: Base URL for testing (optional, defaults to `http://localhost:7071/api`)
+
+### Project Structure
+
+```python
+gem5-resources-api/
+├── function_app.py              # Main app initialization
+├── functions/                   # Individual function modules. Each file inside functions/ registers its route via a shared FunctionApp instance.
+│   ├── get_resource_by_id.py
+│   ├── get_resources_by_batch.py
+│   ├── search_resources.py
+│   ├── get_filters.py
+│   └── get_dependent_workloads.py
+├── shared/                      # Shared utilities
+│   ├── database.py             # Database connection & config
+│   └── utils.py                # Common utilities & validation
+├── tests/                      # Test suite
+│   └── resources_api_tests.py
+├── requirements.txt
+└── local.settings.json
+```
+
+## Running the Application
+
+### Local Development
+
+Start the Azure Function locally. By default, the development server starts at `http://localhost:7071`. Use func start `--port <port>` to run on a different port:
 
 ```bash
-func start
+func start 
 ```
 
 Expected output:
 
 ```bash
 Functions:
-
-        get_resources_by_batch:  http://localhost:7071/api/resources/find-resources-in-batch
-
-        get_resource_by_id:  http://localhost:7071/api/resources/find-resource-by-id
-
-        search_resources:  http://localhost:7071/api/resources/search
+    get_resource_by_id: [GET] http://localhost:7071/api/resources/find-resource-by-id
+    get_resources_by_batch: [GET] http://localhost:7071/api/resources/find-resources-in-batch  
+    search_resources: [GET] http://localhost:7071/api/resources/search
+    get_filters: [GET] http://localhost:7071/api/resources/filters
+    get_dependent_workloads: [GET] http://localhost:7071/api/resources/get-dependent-workloads
 ```
 
-## Testing the Function
+### Testing
 
-### **Using Python Script**
-
-Run the test script, ensuring that Azure Functions is running locally:
+Execute the comprehensive test suite. The test suite assumes access to the gem5 resources database:
 
 ```bash
-python3 -m unittest tests/resources_api_tests.py -v
+# Set API base URL (optional)
+export API_BASE_URL=http://localhost:7071/api
+
+# Run all tests with verbose output
+python -m unittest tests.resources_api_tests -v
+
+# Run specific test categories
+python -m unittest tests.resources_api_tests.TestResourcesAPIIntegration.test_search_basic_contains_str -v
 ```
 
-test tests test
+### Test Coverage
+
+The test suite validates:
+
+**Core Functionality**:
+
+- Resource retrieval by ID (single & batch)
+- Version-specific queries
+- Search with filtering and pagination
+- Filter option retrieval
+- Dependency analysis
+
+**Error Handling**:
+
+- Invalid parameters
+- Missing resources
+- Malformed requests
+- Database connection issues
+
+**Edge Cases**:
+
+- Special characters in search
+- Large batch requests
+- Pagination boundaries
+- Case-insensitive search
+
+## Error Handling
+
+### HTTP Status Codes
+
+- **200 OK**: Successful request
+- **400 Bad Request**: Invalid parameters or malformed request
+- **404 Not Found**: Resource(s) not found
+- **500 Internal Server Error**: Database or server error
+
+### Error Response Format
+
+```json
+{
+  "error": "Descriptive error message explaining the issue"
+}
+```
+
+### Common Error Scenarios
+
+- **Invalid Resource ID**: Non-alphanumeric characters (except dash, underscore, dot)
+- **Version Format**: Invalid semantic version format
+- **Batch Mismatch**: Unequal number of IDs and versions
+- **Search Filters**: Malformed filter syntax
+- **Pagination**: Invalid page or page-size values
+
+## Deployment
+
+This repository has github actions set up that will re deploy the functions once a commit is pushed to the repository.
+
+## Contributing
+
+### Adding New Endpoints
+
+Each new endpoint file must be manually imported and registered in function_app.py using the pattern shown below.
+
+1. **Create Function Module**:
+  
+   ```python
+   # functions/new_endpoint.py
+   def register_function(app, collection):
+       @app.route(route="resources/new-endpoint", auth_level=func.AuthLevel.ANONYMOUS)
+       def new_endpoint(req: func.HttpRequest) -> func.HttpResponse:
+           # Implementation
+   ```
+
+2. **Register in Main App**:
+
+   ```python
+   # function_app.py
+   from functions import new_endpoint
+   new_endpoint.register_function(app, collection)
+   ```
+
+3. **Add Tests**:
+
+   ```python
+   # tests/resources_api_tests.py
+   def test_new_endpoint(self):
+       # Test implementation
+   ```
+
+## gem5 Integration
+
+### Usage in gem5 Website
+
+The API serves the gem5 resources website (resources.gem5.org) by providing:
+
+- Resource details
+- Search functionality
+- Filter options for resource discovery
+- Dependency information for workloads
+
+### Usage in gem5 Simulator
+
+The gem5 simulator integrates with this API to:
+
+- Download resources dynamically
+- Validate resource compatibility
+
+### Community Impact
+
+This API enables the gem5 community to:
+
+- Share resources efficiently
+- Discover relevant resources for research
+- Maintain compatibility across gem5 versions
+- Track resource dependencies and usage
+
+## Support and Maintenance
+
+### Regular Maintenance Tasks
+
+- Update filter values materialized view (automated via GitHub Actions)
+
+### Getting Help
+
+- **Issues**: Report bugs or feature requests via GitHub issues
+- **Documentation**: Refer to this README and inline code documentation
+- **Community**: Engage with gem5 community forums and mailing lists
+
+For technical questions about the API implementation, consult the test suite for expected behavior and error handling patterns.
