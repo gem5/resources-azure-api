@@ -132,7 +132,15 @@ def register_function(app, collection):
 
 
 def get_sort(sort):
-    """Return sort object based on sort parameter."""
+    """
+    Returns a MongoDB-compatible sort dictionary based on the provided sort string.
+
+    Parameters:
+    - sort (str): Sort parameter. One of 'date', 'name', 'version', 'id_asc', 'id_desc'.
+
+    Returns:
+    - dict: Sort specification for MongoDB $sort stage.
+    """
     switch_dict = {
         "date": {"date": -1},
         "name": {"id": 1},
@@ -143,7 +151,17 @@ def get_sort(sort):
     return switch_dict.get(sort, {"score": -1})
 
 def get_latest_version_pipeline():
-    """Return pipeline to get latest version of each resource."""
+    """
+    Constructs an aggregation pipeline to extract the latest version of each resource.
+
+    This stage:
+    - Parses semantic version strings into integer arrays for proper comparison.
+    - Sorts and groups by resource ID.
+    - Selects the latest version document per resource.
+
+    Returns:
+    - list: List of aggregation pipeline stages.
+    """
     return [
         {
             "$addFields": {
@@ -192,7 +210,20 @@ def get_latest_version_pipeline():
     ]
 
 def get_search_pipeline(query_object):
-    """Return pipeline for text search."""
+    """
+    Constructs a MongoDB Atlas Search pipeline based on the input search query.
+
+    The pipeline:
+    - Performs fuzzy full-text search on fields like id, description, category, architecture, and tags.
+    - Boosts matches on the id and specific gem5_versions.
+    - Adds a 'score' field representing search relevance.
+
+    Parameters:
+    - query_object (dict): Dictionary containing a 'query' key for the search string.
+
+    Returns:
+    - list: List of aggregation pipeline stages for search.
+    """
     
     pipeline = [
         {
@@ -255,7 +286,21 @@ def get_search_pipeline(query_object):
     return pipeline
 
 def get_filter_pipeline(query_object):
-    """Return pipeline to apply filters."""
+    """
+    Constructs a MongoDB aggregation pipeline to filter documents based on multiple fields.
+
+    Supported filters include:
+    - tags (unwound and matched individually)
+    - gem5_versions (unwound and matched individually)
+    - category (exact match)
+    - architecture (exact match)
+
+    Parameters:
+    - query_object (dict): Dictionary containing filter keys and values.
+
+    Returns:
+    - list: List of aggregation pipeline stages for filtering documents.
+    """
     pipeline = []
     
     # Filter by tags
@@ -342,7 +387,18 @@ def get_filter_pipeline(query_object):
     return pipeline
 
 def get_sort_pipeline(query_object):
-    """Return pipeline to apply sorting."""
+    """
+    Constructs an aggregation pipeline to sort documents based on a sort parameter.
+
+    Adds a field `ver_latest` to represent the maximum gem5 version,
+    then sorts based on the value provided in query_object["sort"].
+
+    Parameters:
+    - query_object (dict): Dictionary containing the 'sort' key.
+
+    Returns:
+    - list: List of aggregation pipeline stages for sorting.
+    """
     return [
         {
             "$addFields": {
@@ -357,7 +413,21 @@ def get_sort_pipeline(query_object):
     ]
 
 def get_page_pipeline(current_page, page_size):
-    """Return pipeline to apply pagination."""
+    """
+    Constructs an aggregation pipeline to paginate documents.
+
+    This stage:
+    - Groups all items and total count.
+    - Unwinds grouped documents back into individual records.
+    - Applies skip and limit to paginate results.
+
+    Parameters:
+    - current_page (int): Current page number (1-indexed).
+    - page_size (int): Number of results per page.
+
+    Returns:
+    - list: List of aggregation pipeline stages for pagination.
+    """
     return [
         {
             "$group": {
