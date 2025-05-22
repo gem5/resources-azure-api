@@ -8,9 +8,9 @@ from shared.database import RESOURCE_FIELDS
 def register_function(app, collection):
     """Register the function with the app."""
     
-    @app.function_name(name="get_resources_by_batch")
+    @app.function_name(name="find_resources_in_batch")
     @app.route(route="resources/find-resources-in-batch", auth_level=func.AuthLevel.ANONYMOUS)
-    def get_resources_by_batch(req: func.HttpRequest) -> func.HttpResponse:
+    def find_resources_in_batch(req: func.HttpRequest) -> func.HttpResponse:
         """
         Get multiple resources by their IDs and versions.
 
@@ -23,14 +23,19 @@ def register_function(app, collection):
         """
         logging.info('Processing request to get resources by batch')
         try:
-            query_params = parse_qs(req.url.split('?', 1)[1] if '?' in req.url else '')
-            ids = [sanitize_id(i) for i in query_params.get('id', [])]
-            versions = [None if v.lower() == "none" else sanitize_version(v) 
-                      for v in query_params.get('resource_version', [])]
-
-            # Validate inputs
-            if not ids or any(i is None for i in ids):
+            
+            if not "id" in req.params.keys():
                 return create_error_response(400, "At least one valid 'id' parameter is required")
+            
+            ids = [sanitize_id(i) for i in req.params.get('id').split(',')]
+            
+            if not "resource_version" in req.params.keys():
+                return create_error_response(400, "Each 'id' parameter must have a corresponding 'resource_version' parameter (use 'None' to fetch all versions)")
+            
+            versions = [
+                None if v.lower() == "none" else sanitize_version(v)
+                for v in req.params.get('resource_version').split(',')
+            ]
 
             if len(versions) != len(ids):
                 return create_error_response(400, "Each 'id' parameter must have a corresponding 'resource_version' parameter (use 'None' to fetch all versions)")
