@@ -3,7 +3,6 @@
 
 import json
 import logging
-from urllib.parse import parse_qs
 
 import azure.functions as func
 
