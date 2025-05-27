@@ -4,6 +4,9 @@
 
 name: Deploy Python project to Azure Function App
 
+on:
+    workflow_dispatch:  # allows manual triggering of the workflow
+
 # on:
 #   push:
 #     branches:
