@@ -1,3 +1,6 @@
+# Copyright (c) 2025 The Regents of the University of California
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Make this directory a package
 from . import get_resources_by_batch
 from . import search_resources
