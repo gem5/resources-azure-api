@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Make this directory a package
-from . import get_resources_by_batch
-from . import search_resources
-from . import get_filters
-from . import get_dependent_workloads
+from . import (
+    get_dependent_workloads,
+    get_filters,
+    get_resources_by_batch,
+    search_resources,
+)
 
 __all__ = [
-    'get_resources_by_batch',
-    'search_resources',
-    'get_filters',
-    'get_dependent_workloads'
+    "get_resources_by_batch",
+    "search_resources",
+    "get_filters",
+    "get_dependent_workloads",
 ]

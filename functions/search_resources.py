@@ -1,21 +1,24 @@
 # Copyright (c) 2025 The Regents of the University of California
 # SPDX-License-Identifier: BSD-3-Clause
 
-import azure.functions as func
-import logging
 import json
+import logging
+
+import azure.functions as func
 from bson import json_util
+
 from shared.utils import (
-    create_error_response, 
-    sanitize_contains_str, 
+    create_error_response,
+    sanitize_contains_str,
+    sanitize_id,
     sanitize_must_include,
-    sanitize_id
 )
+
 
 def register_function(app, collection):
     """Register the function with the app."""
-    
-    @app.function_name(name="search_resources")   
+
+    @app.function_name(name="search_resources")
     @app.route(route="resources/search", auth_level=func.AuthLevel.ANONYMOUS)
     def search_resources(req: func.HttpRequest) -> func.HttpResponse:
         """
@@ -30,52 +33,72 @@ def register_function(app, collection):
         - page: Optional. Page number for pagination (default: 1).
         - page-size: Optional. Number of results per page (default: 10).
         """
-        logging.info('Processing request to search resources')
+        logging.info("Processing request to search resources")
         try:
             # Get search query
-            contains_str = sanitize_contains_str(req.params.get('contains-str', "").strip())
-            
+            contains_str = sanitize_contains_str(
+                req.params.get("contains-str", "").strip()
+            )
+
             # Get optional filter criteria
-            must_include = sanitize_must_include(req.params.get('must-include', ''))
-            
+            must_include = sanitize_must_include(
+                req.params.get("must-include", "")
+            )
+
             # Get sort parameter
-            sort_param = req.params.get('sort')
+            sort_param = req.params.get("sort")
             if sort_param:
-                sort_param = sort_param if sort_param in ["date", "name", "version", "id_asc", "id_desc"] else "default"
-            
+                sort_param = (
+                    sort_param
+                    if sort_param
+                    in ["date", "name", "version", "id_asc", "id_desc"]
+                    else "default"
+                )
+
             # Get pagination parameters
             try:
-                page = int(req.params.get('page', 1))
-                page_size = int(req.params.get('page-size', 10))
+                page = int(req.params.get("page", 1))
+                page_size = int(req.params.get("page-size", 10))
                 if page < 1:
-                    return create_error_response(400, "Invalid pagination parameters: page must be >=1.")
+                    return create_error_response(
+                        400, "Invalid pagination parameters: page must be >=1."
+                    )
                 if page_size < 1 or page_size > 100:
-                    return create_error_response(400, "Invalid pagination parameters: page-size must be between 1 and 100.")
+                    return create_error_response(
+                        400,
+                        "Invalid pagination parameters: page-size must be between 1 and 100.",
+                    )
             except ValueError:
-                return create_error_response(400, "Invalid pagination parameters")
+                return create_error_response(
+                    400, "Invalid pagination parameters"
+                )
 
             # Create query object similar to the one used in the Data API
             query_object = {
                 "query": contains_str,
-                "sort": sort_param if sort_param else "default"
+                "sort": sort_param if sort_param else "default",
             }
-            
+
             # Parse filter criteria similar to MongoDB implementation
             if must_include:
                 try:
                     # Parse must-include parameter format: field1,value1,value2;field2,value1,value2
-                    for group in must_include.split(';'):
+                    for group in must_include.split(";"):
                         if not group:
                             continue
-                        parts = group.split(',')
+                        parts = group.split(",")
                         if len(parts) < 2:
-                            return create_error_response(400, "Invalid filter format")
-                        
+                            return create_error_response(
+                                400, "Invalid filter format"
+                            )
+
                         field = parts[0]
                         values = [sanitize_id(v) for v in parts[1:]]
                         if not all(values):
-                            return create_error_response(400, "Invalid filter value format")
-                        
+                            return create_error_response(
+                                400, "Invalid filter value format"
+                            )
+
                         # Add to query object similar to original implementation
                         query_object[field] = values
                 except Exception as e:
@@ -84,49 +107,51 @@ def register_function(app, collection):
 
             # Build the aggregation pipeline
             pipeline = []
-            
+
             # Add search query stage if a query is provided
             if contains_str:
                 pipeline.extend(get_search_pipeline(query_object))
-            
+
             # Add filter pipeline stages
             pipeline.extend(get_filter_pipeline(query_object))
-            
+
             # Add latest version pipeline
             pipeline.extend(get_latest_version_pipeline())
-            
+
             # Add sort pipeline
             pipeline.extend(get_sort_pipeline(query_object))
-            
+
             # Add pagination
             pipeline.extend(get_page_pipeline(page, page_size))
-            
+
             # Execute the aggregation
             results = list(collection.aggregate(pipeline))
-            
+
             # Process results to match expected output format
             processed_results = []
             total_count = 0
-            
+
             if results:
                 processed_results = results
-                total_count = results[0].get('totalCount', 0) if results else 0
-                
+                total_count = results[0].get("totalCount", 0) if results else 0
+
                 # Remove MongoDB _id field and ensure database field is added
                 for resource in processed_results:
-                    if '_id' in resource:
-                        del resource['_id']
-                    resource['database'] = "gem5-vision"  # Add database field like in original implementation
-            
+                    if "_id" in resource:
+                        del resource["_id"]
+                    resource["database"] = (
+                        "gem5-vision"  # Add database field like in original implementation
+                    )
+
             response_data = {
                 "documents": processed_results,
-                "totalCount": total_count
+                "totalCount": total_count,
             }
-            
+
             return func.HttpResponse(
                 body=json.dumps(response_data, default=json_util.default),
                 headers={"Content-Type": "application/json"},
-                status_code=200
+                status_code=200,
             )
 
         except Exception as e:
@@ -149,9 +174,10 @@ def get_sort(sort):
         "name": {"id": 1},
         "version": {"ver_latest": -1},
         "id_asc": {"id": 1},
-        "id_desc": {"id": -1}
+        "id_desc": {"id": -1},
     }
     return switch_dict.get(sort, {"score": -1})
+
 
 def get_latest_version_pipeline():
     """
@@ -212,6 +238,7 @@ def get_latest_version_pipeline():
         },
     ]
 
+
 def get_search_pipeline(query_object):
     """
     Constructs a MongoDB Atlas Search pipeline based on the input search query.
@@ -227,7 +254,7 @@ def get_search_pipeline(query_object):
     Returns:
     - list: List of aggregation pipeline stages for search.
     """
-    
+
     pipeline = [
         {
             "$search": {
@@ -237,24 +264,16 @@ def get_search_pipeline(query_object):
                             "text": {
                                 "path": "id",
                                 "query": query_object["query"],
-                                "score": {
-                                    "boost": {
-                                        "value": 10
-                                    }
-                                }
+                                "score": {"boost": {"value": 10}},
                             }
                         },
                         {
                             "text": {
                                 "path": "gem5_versions",
                                 "query": "24.1",
-                                "score": {
-                                    "boost": {
-                                        "value": 10
-                                    }
-                                }
+                                "score": {"boost": {"value": 10}},
                             }
-                        }
+                        },
                     ],
                     "must": [
                         {
@@ -265,28 +284,20 @@ def get_search_pipeline(query_object):
                                     "description",
                                     "category",
                                     "architecture",
-                                    "tags"
+                                    "tags",
                                 ],
-                                "fuzzy": {
-                                    "maxEdits": 2,
-                                    "maxExpansions": 100
-                                }
+                                "fuzzy": {"maxEdits": 2, "maxExpansions": 100},
                             }
                         }
-                    ]
+                    ],
                 }
             }
         },
-        {
-            "$addFields": {
-                "score": {
-                    "$meta": "searchScore"
-                }
-            }
-        }
+        {"$addFields": {"score": {"$meta": "searchScore"}}},
     ]
 
     return pipeline
+
 
 def get_filter_pipeline(query_object):
     """
@@ -305,89 +316,94 @@ def get_filter_pipeline(query_object):
     - list: List of aggregation pipeline stages for filtering documents.
     """
     pipeline = []
-    
+
     # Filter by tags
     if query_object.get("tags"):
-        pipeline.extend([
-            {
-                "$addFields": {
-                    "tag": "$tags",
-                },
-            },
-            {
-                "$unwind": "$tag",
-            },
-            {
-                "$match": {
-                    "tag": {
-                        "$in": query_object["tags"],
+        pipeline.extend(
+            [
+                {
+                    "$addFields": {
+                        "tag": "$tags",
                     },
                 },
-            },
-            {
-                "$group": {
-                    "_id": "$_id",
-                    "doc": {
-                        "$first": "$$ROOT",
+                {
+                    "$unwind": "$tag",
+                },
+                {
+                    "$match": {
+                        "tag": {
+                            "$in": query_object["tags"],
+                        },
                     },
                 },
-            },
-            {
-                "$replaceRoot": {
-                    "newRoot": "$doc",
+                {
+                    "$group": {
+                        "_id": "$_id",
+                        "doc": {
+                            "$first": "$$ROOT",
+                        },
+                    },
                 },
-            },
-        ])
-    
+                {
+                    "$replaceRoot": {
+                        "newRoot": "$doc",
+                    },
+                },
+            ]
+        )
+
     # Filter by gem5_versions
     if query_object.get("gem5_versions"):
-        pipeline.extend([
-            {
-                "$addFields": {
-                    "version": "$gem5_versions",
-                },
-            },
-            {
-                "$unwind": "$version",
-            },
-            {
-                "$match": {
-                    "version": {
-                        "$in": query_object["gem5_versions"],
+        pipeline.extend(
+            [
+                {
+                    "$addFields": {
+                        "version": "$gem5_versions",
                     },
                 },
-            },
-            {
-                "$group": {
-                    "_id": "$_id",
-                    "doc": {
-                        "$first": "$$ROOT",
+                {
+                    "$unwind": "$version",
+                },
+                {
+                    "$match": {
+                        "version": {
+                            "$in": query_object["gem5_versions"],
+                        },
                     },
                 },
-            },
-            {
-                "$replaceRoot": {
-                    "newRoot": "$doc",
+                {
+                    "$group": {
+                        "_id": "$_id",
+                        "doc": {
+                            "$first": "$$ROOT",
+                        },
+                    },
                 },
-            },
-        ])
-    
+                {
+                    "$replaceRoot": {
+                        "newRoot": "$doc",
+                    },
+                },
+            ]
+        )
+
     # Add other filters (category and architecture)
     match_conditions = []
     if query_object.get("category"):
-        match_conditions.append({"category": {"$in": query_object["category"]}})
-    
+        match_conditions.append(
+            {"category": {"$in": query_object["category"]}}
+        )
+
     if query_object.get("architecture"):
-        match_conditions.append({"architecture": {"$in": query_object["architecture"]}})
-    
+        match_conditions.append(
+            {"architecture": {"$in": query_object["architecture"]}}
+        )
+
     if match_conditions:
-        pipeline.append({
-            "$match": {
-                "$and": match_conditions
-            }
-        })
-    
+        pipeline.append({"$match": {"$and": match_conditions}})
+
     return pipeline
+
 
 def get_sort_pipeline(query_object):
     """
@@ -412,8 +428,9 @@ def get_sort_pipeline(query_object):
         },
         {
             "$sort": get_sort(query_object.get("sort")),
-        }
+        },
     ]
+
 
 def get_page_pipeline(current_page, page_size):
     """
@@ -436,21 +453,21 @@ def get_page_pipeline(current_page, page_size):
             "$group": {
                 "_id": None,
                 "totalCount": {"$sum": 1},
-                "items": {"$push": "$$ROOT"}
+                "items": {"$push": "$$ROOT"},
             }
         },
+        {"$unwind": "$items"},
         {
-            "$unwind": "$items"
-        },
-        {
-            "$replaceRoot": {"newRoot": {
-                "$mergeObjects": ["$items", {"totalCount": "$totalCount"}]
-            }}
+            "$replaceRoot": {
+                "newRoot": {
+                    "$mergeObjects": ["$items", {"totalCount": "$totalCount"}]
+                }
+            }
         },
         {
             "$skip": (current_page - 1) * page_size,
         },
         {
             "$limit": page_size,
-        }
+        },
     ]
