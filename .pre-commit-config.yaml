@@ -1,0 +1,47 @@
+---
+# Copyright (c) 2025 The Regents of the University of California
+# SPDX-License-Identifier: BSD-3-Clause
+
+minimum_pre_commit_version: '2.18'
+
+default_language_version:
+    python: python3
+
+default_stages: [pre-commit]
+
+repos:
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v5.0.0
+      hooks:
+          - id: trailing-whitespace
+          - id: end-of-file-fixer
+          - id: check-json
+          - id: check-yaml
+          - id: check-added-large-files
+          - id: mixed-line-ending
+            args: [--fix=lf]
+          - id: check-ast
+          - id: check-case-conflict
+          - id: check-merge-conflict
+          - id: check-symlinks
+          - id: destroyed-symlinks
+          - id: requirements-txt-fixer
+    - repo: https://github.com/PyCQA/isort
+      rev: 6.0.1
+      hooks:
+          - id: isort
+    - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+      rev: 0.2.3
+      hooks:
+          - id: yamlfmt
+    - repo: https://github.com/psf/black
+      rev: 25.1.0
+      hooks:
+          - id: black
+    - repo: https://github.com/asottile/pyupgrade
+      rev: v3.19.1
+      hooks:
+          - id: pyupgrade
+            # Python 3.10 is the earliest version supported.
+            # We therefore conform to the standards compatible with 3.10+.
+            args: [--py310-plus]
