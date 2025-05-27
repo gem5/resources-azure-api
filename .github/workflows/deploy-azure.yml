@@ -14,7 +14,9 @@ on:
 
 env:
     AZURE_FUNCTIONAPP_NAME: gem5-resources-api
-    AZURE_FUNCTIONAPP_PACKAGE_PATH: .       # function API code lives in the repo root
+
+    # function API code lives in the repo root
+    AZURE_FUNCTIONAPP_PACKAGE_PATH: .
     PYTHON_VERSION: '3.12'
 
 jobs:
@@ -33,7 +35,8 @@ jobs:
               run: |
                   pushd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
                   python -m pip install --upgrade pip
-                  pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+                  pip install -r requirements.txt \
+                    --target=".python_packages/lib/site-packages"
                   popd
 
             - name: Deploy to Azure Functions
@@ -41,6 +44,7 @@ jobs:
               with:
                   app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
                   package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-                  publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+                  publish-profile: |
+                      ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
                   scm-do-build-during-deployment: true
                   enable-oryx-build: true

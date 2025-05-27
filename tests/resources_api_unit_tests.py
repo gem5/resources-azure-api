@@ -17,7 +17,8 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         cls.base_url = os.getenv("API_BASE_URL", "http://localhost:7071/api")
 
     def test_get_resources_by_batch_with_specific_versions(self):
-        """Test retrieving multiple resources by batch with specific versions."""
+        """Test retrieving multiple resources by batch with specific
+        versions."""
         resource_pairs = [
             ("riscv-ubuntu-20.04-boot", "3.0.0"),
             ("arm-hello64-static", "1.0.0"),
@@ -43,7 +44,8 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         self.assertEqual(found_resources, expected_resources)
 
     def test_get_resources_by_batch_with_none_versions(self):
-        """Test retrieving multiple resources by batch with None versions (all versions)."""
+        """Test retrieving multiple resources by batch with None versions
+        (all versions)."""
         resource_ids = ["riscv-ubuntu-20.04-boot", "arm-hello64-static"]
         query_string = "&".join(
             [f"id={id}&resource_version=None" for id in resource_ids]
@@ -129,8 +131,13 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_get_resources_by_batch_mismatched_parameters(self):
-        """Test batch retrieval with mismatched number of id and version parameters."""
-        url = f"{self.base_url}/resources/find-resources-in-batch?id=arm-hello64-static&id=riscv-ubuntu-20.04-boot&resource_version=1.0.0"
+        """Test batch retrieval with mismatched number of id and version
+        parameters."""
+        url = (
+            f"{self.base_url}/resources/find-resources-in-batch"
+            "?id=arm-hello64-static&id=riscv-ubuntu-20.04-boot"
+            "&resource_version=1.0.0"
+        )
         response = requests.get(url)
         self.assertEqual(response.status_code, 400)
         data = response.json()
@@ -138,8 +145,12 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         self.assertIn("corresponding", data["error"])
 
     def test_get_resources_by_batch_no_version_parameters(self):
-        """Test batch retrieval without any version parameters (should fail)."""
-        url = f"{self.base_url}/resources/find-resources-in-batch?id=arm-hello64-static&id=riscv-ubuntu-20.04-boot"
+        """Test batch retrieval without any version parameters
+        (should fail)."""
+        url = (
+            f"{self.base_url}/resources/find-resources-in-batch?"
+            "id=arm-hello64-static&id=riscv-ubuntu-20.04-boot"
+        )
         response = requests.get(url)
         self.assertEqual(response.status_code, 400)
         data = response.json()
@@ -194,7 +205,8 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         if len(data["gem5_versions"]) > 1:
             versions = data["gem5_versions"]
             for i in range(len(versions) - 1):
-                # Assuming semantic versioning, newer versions should come first
+                # Assuming semantic versioning, newer versions should come
+                # first
                 self.assertGreaterEqual(versions[i], versions[i + 1])
 
         # Check that categories and architectures are sorted
@@ -393,7 +405,8 @@ class TestResourcesAPIIntegration(unittest.TestCase):
         self.assertEqual(response.status_code, 200)  # Should handle gracefully
 
     def test_batch_with_maximum_resources(self):
-        """Test batch retrieval with a reasonable number of resources (stress test)."""
+        """Test batch retrieval with a reasonable number of resources
+        (stress test)."""
         # Create 10 resource requests
         resource_ids = ["arm-hello64-static"] * 10
         versions = ["1.0.0"] * 10

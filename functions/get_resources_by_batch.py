@@ -30,8 +30,10 @@ def register_function(app, collection):
 
         Query Parameters:
         - id: Required, can appear multiple times (up to 40)
-        - resource_version: Required, must match number of id parameters and be in same order
-                If "None" is passed, all versions of the resource with the corresponding ID will be returned
+        - resource_version: Required, must match number of id parameters and
+                            be in same order.
+                            If "None" is passed, all versions of the resource
+                            with the corresponding ID will be returned.
         """
         logging.info("Processing request to get resources by batch")
         try:
@@ -46,7 +48,9 @@ def register_function(app, collection):
             if not "resource_version" in req.params.keys():
                 return create_error_response(
                     400,
-                    "Each 'id' parameter must have a corresponding 'resource_version' parameter (use 'None' to fetch all versions)",
+                    "Each 'id' parameter must have a corresponding "
+                    "'resource_version' parameter "
+                    "(use 'None' to fetch all versions)",
                 )
 
             versions = [
@@ -57,7 +61,9 @@ def register_function(app, collection):
             if len(versions) != len(ids):
                 return create_error_response(
                     400,
-                    "Each 'id' parameter must have a corresponding 'resource_version' parameter (use 'None' to fetch all versions)",
+                    "Each 'id' parameter must have a corresponding "
+                    "'resource_version' parameter "
+                    "(use 'None' to fetch all versions)",
                 )
 
             # Create a list of queries for MongoDB $or operator
@@ -87,7 +93,8 @@ def register_function(app, collection):
             if missing_ids:
                 return create_error_response(
                     404,
-                    f"The following requested resources were not found: {', '.join(missing_ids)}",
+                    "The following requested resources were not found: "
+                    f"{', '.join(missing_ids)}",
                 )
 
             return func.HttpResponse(

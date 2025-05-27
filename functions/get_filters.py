@@ -16,18 +16,20 @@ def register_function(app, collection, filter_values_collection):
     Args:
         app: The Azure Functions app
         collection: The resources collection
-        filter_values_collection: The materialized view collection for filter values
+        filter_values_collection: The materialized view collection for filter
+                                  values
     """
 
     @app.route(route="resources/filters", auth_level=func.AuthLevel.ANONYMOUS)
     def get_filters(req: func.HttpRequest) -> func.HttpResponse:
         """
-        Get distinct categories, architectures, and gem5 versions from the filter_values collection.
+        Get distinct categories, architectures, and gem5 versions from the
+        filter_values collection.
 
         Route: /resources/filters
 
-        This function retrieves pre-computed filter values from a materialized view collection
-        that is updated daily by a GitHub Action.
+        This function retrieves pre-computed filter values from a materialized
+        view collection that is updated daily by a GitHub Action.
         """
         logging.info("Processing request to get resource filters")
         try:
@@ -42,7 +44,8 @@ def register_function(app, collection, filter_values_collection):
 
                 if last_updated:
                     logging.info(
-                        f"Returning filter values last updated at {last_updated}"
+                        "Returning filter values last "
+                        f"updated at {last_updated}"
                     )
 
                 return func.HttpResponse(
@@ -52,11 +55,12 @@ def register_function(app, collection, filter_values_collection):
                 )
             else:
                 logging.warning(
-                    "No cached filter values found. Falling back to direct aggregation."
+                    "No cached filter values found. "
+                    "Falling back to direct aggregation."
                 )
 
-                # Fallback to direct aggregation if the materialized view doesn't exist
-                # This is the original aggregation pipeline
+                # Fallback to direct aggregation if the materialized view
+                # doesn't exist. This is the original aggregation pipeline
                 pipeline = [
                     {
                         "$unwind": {

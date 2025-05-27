@@ -301,7 +301,8 @@ def get_search_pipeline(query_object):
 
 def get_filter_pipeline(query_object):
     """
-    Constructs a MongoDB aggregation pipeline to filter documents based on multiple fields.
+    Constructs a MongoDB aggregation pipeline to filter documents based on
+    multiple fields.
 
     Supported filters include:
     - tags (unwound and matched individually)
@@ -407,7 +408,8 @@ def get_filter_pipeline(query_object):
 
 def get_sort_pipeline(query_object):
     """
-    Constructs an aggregation pipeline to sort documents based on a sort parameter.
+    Constructs an aggregation pipeline to sort documents based on a sort
+    parameter.
 
     Adds a field `ver_latest` to represent the maximum gem5 version,
     then sorts based on the value provided in query_object["sort"].
