@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025 The Regents of the University of California
+
 import azure.functions as func
 import logging
 import json

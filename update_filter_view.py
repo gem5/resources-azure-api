@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025 The Regents of the University of California
+
 #!/usr/bin/env python3
 """
 Script to update the filter values collection.
