@@ -232,14 +232,14 @@ gem5-resources-api/
 Start the Azure Function locally. By default, the development server starts at `http://localhost:7071`. Use func start `--port <port>` to run on a different port:
 
 ```bash
-func start 
+func start
 ```
 
 Expected output:
 
 ```bash
 Functions:
-    get_resources_by_batch: [GET] http://localhost:7071/api/resources/find-resources-in-batch  
+    get_resources_by_batch: [GET] http://localhost:7071/api/resources/find-resources-in-batch
     search_resources: [GET] http://localhost:7071/api/resources/search
     get_filters: [GET] http://localhost:7071/api/resources/filters
     get_dependent_workloads: [GET] http://localhost:7071/api/resources/get-dependent-workloads
@@ -322,7 +322,7 @@ This repository has github actions set up that will re deploy the functions once
 Each new endpoint file must be manually imported and registered in function_app.py using the pattern shown below.
 
 1. **Create Function Module**:
-  
+
    ```python
    # functions/new_endpoint.py
    def register_function(app, collection):
