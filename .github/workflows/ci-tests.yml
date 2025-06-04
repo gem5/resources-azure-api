@@ -34,7 +34,10 @@ jobs:
 
         if: github.event.pull_request.draft == false
         needs: pre-commit
-
+        env:
+          FUNCTIONS_WORKER_RUNTIME: python
+          MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
+          AzureWebJobsStorage: UseDevelopmentStorage=true
         steps:
             - name: Checkout repo
               uses: actions/checkout@v4
@@ -58,7 +61,6 @@ jobs:
 
             - name: Start Azure Functions
               run: |
-                  export FUNCTIONS_WORKER_RUNTIME=python
                   # Start Azure Functions in the background
                   func start --port 7071 --no-build &
                   # Wait for the functions to be ready (adjust time as needed)
