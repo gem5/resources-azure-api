@@ -54,17 +54,11 @@ jobs:
 
             - name: Install Azure Functions Core Tools
               run: |
-                  curl https://packages.microsoft.com/keys/microsoft.asc | \
-                    gpg --dearmor > microsoft.gpg
-                  sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
-                  sudo sh -c \
-                    'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" \
-                    > /etc/apt/sources.list.d/dotnetdev.list'
-                  sudo apt-get update
-                  sudo apt-get install azure-functions-core-tools-4
+                  npm install -g azure-functions-core-tools@4 --unsafe-perm true
 
             - name: Start Azure Functions
               run: |
+                  export FUNCTIONS_WORKER_RUNTIME=python
                   # Start Azure Functions in the background
                   func start --port 7071 --no-build &
                   # Wait for the functions to be ready (adjust time as needed)
