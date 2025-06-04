@@ -72,4 +72,4 @@ jobs:
 
             - name: Run tests
               run: |
-                  python3 -m unittest resources_api_tests.py -v
+                  python3 -m unittest tests.resources_api_unit_tests -v
