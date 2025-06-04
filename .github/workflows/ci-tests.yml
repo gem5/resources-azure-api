@@ -62,10 +62,15 @@ jobs:
             - name: Start Azure Functions
               run: |
                   # Start Azure Functions in the background
-                  func start --port 7071 --no-build &
+                  func start --port 7071 --no-build > func.log 2>&1 &
+                  echo $! > func.pid
                   # Wait for the functions to be ready (adjust time as needed)
                   sleep 20
 
             - name: Run tests
               run: |
                   python3 -m unittest tests.resources_api_unit_tests -v
+            - name: Cleanup Azure Functions
+              if: always()
+              run: |
+                  kill $(cat func.pid) || true
