@@ -1,0 +1,76 @@
+---
+# Copyright (c) 2025 The Regents of the University of California
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: CI Tests for Pull Requests
+
+on:
+    pull_request:
+        types: [opened, synchronize, ready_for_review]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+    cancel-in-progress: true
+
+jobs:
+    pre-commit:
+        runs-on: ubuntu-24.04
+        if: github.event.pull_request.draft == false
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v4
+
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.10'
+
+            - name: Run pre-commit hooks
+              uses: pre-commit/action@v3.0.1
+
+
+    unit-tests:
+        runs-on: ubuntu-24.04
+
+        if: github.event.pull_request.draft == false
+        needs: pre-commit
+        env:
+            FUNCTIONS_WORKER_RUNTIME: python
+            MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
+            AzureWebJobsStorage: UseDevelopmentStorage=true
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v4
+
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.10'
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  if [ -f requirements.txt ];
+                  then
+                    pip install -r requirements.txt
+                  fi
+
+            - name: Install Azure Functions Core Tools
+              run: |
+                  npm install -g azure-functions-core-tools@4 --unsafe-perm true
+
+            - name: Start Azure Functions
+              run: |
+                  # Start Azure Functions in the background
+                  func start --port 7071 --no-build > func.log 2>&1 &
+                  echo $! > func.pid
+                  # Wait for the functions to be ready (adjust time as needed)
+                  sleep 20
+
+            - name: Run tests
+              run: |
+                  python3 -m unittest tests.resources_api_unit_tests -v
+            - name: Cleanup Azure Functions
+              if: always()
+              run: |
+                  kill $(cat func.pid) || true

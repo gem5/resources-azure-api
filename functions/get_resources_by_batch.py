@@ -1,18 +1,27 @@
-# SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 The Regents of the University of California
+# SPDX-License-Identifier: BSD-3-Clause
+
+import json
+import logging
 
 import azure.functions as func
-import logging
-import json
-from urllib.parse import parse_qs
-from shared.utils import create_error_response, sanitize_id, sanitize_version
+
 from shared.database import RESOURCE_FIELDS
+from shared.utils import (
+    create_error_response,
+    sanitize_id,
+    sanitize_version,
+)
+
 
 def register_function(app, collection):
     """Register the function with the app."""
-    
+
     @app.function_name(name="find_resources_in_batch")
-    @app.route(route="resources/find-resources-in-batch", auth_level=func.AuthLevel.ANONYMOUS)
+    @app.route(
+        route="resources/find-resources-in-batch",
+        auth_level=func.AuthLevel.ANONYMOUS,
+    )
     def find_resources_in_batch(req: func.HttpRequest) -> func.HttpResponse:
         """
         Get multiple resources by their IDs and versions.
@@ -21,28 +30,42 @@ def register_function(app, collection):
 
         Query Parameters:
         - id: Required, can appear multiple times (up to 40)
-        - resource_version: Required, must match number of id parameters and be in same order
-                If "None" is passed, all versions of the resource with the corresponding ID will be returned
+        - resource_version: Required, must match number of id parameters and
+                            be in same order.
+                            If "None" is passed, all versions of the resource
+                            with the corresponding ID will be returned.
         """
-        logging.info('Processing request to get resources by batch')
+        logging.info("Processing request to get resources by batch")
         try:
-            
+
             if not "id" in req.params.keys():
-                return create_error_response(400, "At least one valid 'id' parameter is required")
-            
-            ids = [sanitize_id(i) for i in req.params.get('id').split(',')]
-            
+                return create_error_response(
+                    400, "At least one valid 'id' parameter is required"
+                )
+
+            ids = [sanitize_id(i) for i in req.params.get("id").split(",")]
+
             if not "resource_version" in req.params.keys():
-                return create_error_response(400, "Each 'id' parameter must have a corresponding 'resource_version' parameter (use 'None' to fetch all versions)")
-            
+                return create_error_response(
+                    400,
+                    "Each 'id' parameter must have a corresponding "
+                    "'resource_version' parameter "
+                    "(use 'None' to fetch all versions)",
+                )
+
             versions = [
                 None if v.lower() == "none" else sanitize_version(v)
-                for v in req.params.get('resource_version').split(',')
+                for v in req.params.get("resource_version").split(",")
             ]
 
             if len(versions) != len(ids):
-                return create_error_response(400, "Each 'id' parameter must have a corresponding 'resource_version' parameter (use 'None' to fetch all versions)")
-            
+                return create_error_response(
+                    400,
+                    "Each 'id' parameter must have a corresponding "
+                    "'resource_version' parameter "
+                    "(use 'None' to fetch all versions)",
+                )
+
             # Create a list of queries for MongoDB $or operator
             queries = []
             for id, version in zip(ids, versions):
@@ -53,26 +76,31 @@ def register_function(app, collection):
                     # Otherwise, find the specific version
                     queries.append({"id": id, "resource_version": version})
 
-            resources = list(collection.find({"$or": queries}, RESOURCE_FIELDS))
+            resources = list(
+                collection.find({"$or": queries}, RESOURCE_FIELDS)
+            )
 
             # Check if any resources were found
             if not resources:
-                return create_error_response(404, "No requested resources were found")
-            
+                return create_error_response(
+                    404, "No requested resources were found"
+                )
+
             # Check if at least one instance of each requested ID is present
-            found_ids = set(resource.get("id") for resource in resources)
+            found_ids = {resource.get("id") for resource in resources}
             missing_ids = set(ids) - found_ids
-            
+
             if missing_ids:
                 return create_error_response(
-                    404, 
-                    f"The following requested resources were not found: {', '.join(missing_ids)}"
+                    404,
+                    "The following requested resources were not found: "
+                    f"{', '.join(missing_ids)}",
                 )
 
             return func.HttpResponse(
                 body=json.dumps(resources),
                 status_code=200,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
 
         except Exception as e:

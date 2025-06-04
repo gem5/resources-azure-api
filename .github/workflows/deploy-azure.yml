@@ -1,4 +1,11 @@
+---
+# Copyright (c) 2025 The Regents of the University of California
+# SPDX-License-Identifier: BSD-3-Clause
+
 name: Deploy Python project to Azure Function App
+
+on:
+    workflow_dispatch:  # allows manual triggering of the workflow
 
 # on:
 #   push:
@@ -6,34 +13,38 @@ name: Deploy Python project to Azure Function App
 #       - main  # only run on pushes to main
 
 env:
-  AZURE_FUNCTIONAPP_NAME: 'gem5-resources-api'   
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.'       # function API code lives in the repo root
-  PYTHON_VERSION: '3.12' 
+    AZURE_FUNCTIONAPP_NAME: gem5-resources-api
+
+    # function API code lives in the repo root
+    AZURE_FUNCTIONAPP_PACKAGE_PATH: .
+    PYTHON_VERSION: '3.12'
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
 
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
+            - name: Set up Python ${{ env.PYTHON_VERSION }}
+              uses: actions/setup-python@v4
+              with:
+                  python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies into .python_packages
-        run: |
-          pushd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt --target=".python_packages/lib/site-packages"
-          popd
+            - name: Install dependencies into .python_packages
+              run: |
+                  pushd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt \
+                    --target=".python_packages/lib/site-packages"
+                  popd
 
-      - name: Deploy to Azure Functions
-        uses: Azure/functions-action@v1
-        with:
-          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
-          scm-do-build-during-deployment: true
-          enable-oryx-build: true
+            - name: Deploy to Azure Functions
+              uses: Azure/functions-action@v1
+              with:
+                  app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+                  package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+                  publish-profile: |
+                      ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+                  scm-do-build-during-deployment: true
+                  enable-oryx-build: true

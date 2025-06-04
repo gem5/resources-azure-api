@@ -1,9 +1,10 @@
-# SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 The Regents of the University of California
+# SPDX-License-Identifier: BSD-3-Clause
 
-import os
-import pymongo
 import logging
+import os
+
+import pymongo
 
 # Define explicit allow-list for resource fields
 # Comes from the schema
@@ -42,20 +43,23 @@ RESOURCE_FIELDS = {
     "documentation": 1,  # abstract-file
     "workloads": 1,  # suite
     "input-group": 1,  # suite workloads
-    "_id": 0
+    "_id": 0,
 }
+
 
 def initialize_database():
     """Initialize MongoDB connection."""
     try:
         # Load MongoDB connection string from environment variables
-        MONGO_CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING", "mongodb://localhost:27017")
-        
+        MONGO_CONNECTION_STRING = os.getenv(
+            "MONGO_CONNECTION_STRING", "mongodb://localhost:27017"
+        )
+
         # Connect to MongoDB
         client = pymongo.MongoClient(MONGO_CONNECTION_STRING)
         db = client["gem5-vision"]
         collection = db["resources"]
-        
+
         return db, collection
     except Exception as e:
         logging.error(f"Error initializing database: {str(e)}")
