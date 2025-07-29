@@ -53,7 +53,8 @@ GET /api/resources/find-resources-in-batch?id=riscv-ubuntu-20.04-boot&resource_v
 
 - Each `id` parameter must have a corresponding `resource_version` parameter
 - Use `resource_version=None` to retrieve all versions of a resource
-- Returns 404 if any requested resource is missing
+- Returns a list of resources that were found even if not all requested resources were found.
+- Returns an empty list is no resources were found.
 
 ### 2. Advanced Resource Search
 

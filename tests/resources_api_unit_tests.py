@@ -107,10 +107,14 @@ class TestResourcesAPIIntegration(unittest.TestCase):
             f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
         )
         response = requests.get(url)
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertIn("error", data)
-        self.assertIn("non-existent", data["error"])
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 1)
+
+        found_ids = [r["id"] for r in data]
+        self.assertEqual(len(found_ids), 1)
+        self.assertEqual("arm-hello64-static", found_ids[0])
 
     def test_get_resources_by_batch_not_found_all(self):
         """Test batch retrieval where all resources are missing."""
@@ -128,7 +132,10 @@ class TestResourcesAPIIntegration(unittest.TestCase):
             f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
         )
         response = requests.get(url)
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 0)
 
     def test_get_resources_by_batch_mismatched_parameters(self):
         """Test batch retrieval with mismatched number of id and version
@@ -173,10 +180,14 @@ class TestResourcesAPIIntegration(unittest.TestCase):
             f"{self.base_url}/resources/find-resources-in-batch?{query_string}"
         )
         response = requests.get(url)
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertIn("error", data)
-        self.assertIn("riscv-ubuntu-20.04-boot", data["error"])
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 1)
+
+        found_ids = [r["id"] for r in data]
+        self.assertEqual(len(found_ids), 1)
+        self.assertEqual("arm-hello64-static", found_ids[0])
 
     # FILTER ENDPOINT TESTS
     def test_get_filters(self):

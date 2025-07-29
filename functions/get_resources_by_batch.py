@@ -80,23 +80,6 @@ def register_function(app, collection):
                 collection.find({"$or": queries}, RESOURCE_FIELDS)
             )
 
-            # Check if any resources were found
-            if not resources:
-                return create_error_response(
-                    404, "No requested resources were found"
-                )
-
-            # Check if at least one instance of each requested ID is present
-            found_ids = {resource.get("id") for resource in resources}
-            missing_ids = set(ids) - found_ids
-
-            if missing_ids:
-                return create_error_response(
-                    404,
-                    "The following requested resources were not found: "
-                    f"{', '.join(missing_ids)}",
-                )
-
             return func.HttpResponse(
                 body=json.dumps(resources),
                 status_code=200,
