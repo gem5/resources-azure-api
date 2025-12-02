@@ -398,7 +398,6 @@ class TestResourcesAPIIntegration(unittest.TestCase):
                 len({"22.0", "23.0"}.intersection(gem5_versions)) > 0
             )
 
-    # EDGE CASE AND STRESS TESTS
     def test_search_with_special_characters(self):
         """Test search with special characters in the search string."""
         params = {"contains-str": "test-resource_with.special-chars"}
@@ -427,6 +426,147 @@ class TestResourcesAPIIntegration(unittest.TestCase):
             f"{self.base_url}/resources/find-resources-in-batch", params=params
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_search_without_contains_str(self):
+        """Test search without contains-str returns all resources."""
+        params = {"page": 1, "page-size": 5}
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("documents", data)
+        self.assertIn("totalCount", data)
+        self.assertGreater(len(data["documents"]), 0)
+
+    def test_search_sort_by_id_asc(self):
+        """Test search with sort by id ascending."""
+        params = {"contains-str": "arm", "sort": "id_asc", "page-size": 10}
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        resources = data["documents"]
+        if len(resources) > 1:
+            ids = [r["id"].lower() for r in resources]
+            self.assertEqual(ids, sorted(ids))
+
+    def test_search_sort_by_id_desc(self):
+        """Test search with sort by id descending."""
+        params = {"contains-str": "arm", "sort": "id_desc", "page-size": 10}
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        resources = data["documents"]
+        if len(resources) > 1:
+            ids = [r["id"].lower() for r in resources]
+            self.assertEqual(ids, sorted(ids, reverse=True))
+
+    def test_search_total_count(self):
+        """Test that totalCount is accurate."""
+        params = {"contains-str": "arm", "page": 1, "page-size": 2}
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("totalCount", data)
+        self.assertIsInstance(data["totalCount"], int)
+        self.assertGreaterEqual(data["totalCount"], len(data["documents"]))
+
+    def test_search_with_multiple_architectures(self):
+        """Test search with multiple architecture values."""
+        params = {
+            "contains-str": "hello",
+            "must-include": "architecture,x86,ARM",
+        }
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for resource in data["documents"]:
+            self.assertIn(resource["architecture"], ["x86", "ARM"])
+
+    def test_search_pagination_beyond_results(self):
+        """Test pagination when page is beyond available results."""
+        params = {
+            "contains-str": "arm-hello64-static",
+            "page": 1000,
+            "page-size": 10,
+        }
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data["documents"]), 0)  # No results on this page
+
+    def test_search_pagination_max_page_size(self):
+        """Test pagination with maximum page-size (100)."""
+        params = {"contains-str": "resource", "page": 1, "page-size": 100}
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_search_pagination_exceeds_max_page_size(self):
+        """Test pagination with page-size exceeding max (should fail)."""
+        params = {"contains-str": "resource", "page": 1, "page-size": 101}
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_search_pagination_invalid_page(self):
+        """Test pagination with invalid page number (should fail)."""
+        params = {"contains-str": "resource", "page": 0, "page-size": 10}
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_search_returns_latest_version_only(self):
+        """Test that search returns only the latest version of each resource."""
+        params = {"contains-str": "ubuntu", "page-size": 50}
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        resources = data["documents"]
+
+        # Check no duplicate IDs (each resource appears only once)
+        ids = [r["id"] for r in resources]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_search_combined_filters_sort_pagination(self):
+        """Test search with filters, sorting, and pagination combined."""
+        params = {
+            "contains-str": "ubuntu",
+            "must-include": "architecture,ARM",
+            "sort": "name",
+            "page": 1,
+            "page-size": 5,
+        }
+        response = requests.get(
+            f"{self.base_url}/resources/search", params=params
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        resources = data["documents"]
+
+        # Validate architecture filter
+        for resource in resources:
+            self.assertEqual(resource["architecture"], "ARM")
+
+        # Validate sorting (by name/id ascending)
+        if len(resources) > 1:
+            ids = [r["id"].lower() for r in resources]
+            self.assertEqual(ids, sorted(ids))
 
 
 if __name__ == "__main__":

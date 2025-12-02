@@ -6,6 +6,7 @@
 # Manually managing azure-functions-worker may cause unexpected issues
 
 azure-functions
+azure-search-documents
 pymongo==4.11.2
 python-dotenv
 requests==2.32.3

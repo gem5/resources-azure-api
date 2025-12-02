@@ -49,10 +49,11 @@ def sanitize_contains_str(value):
 
 def sanitize_must_include(value):
     # Only allow field,value1,value2;field2,value1,value2, max 500 chars
+    # Allow dots for version numbers like "24.1"
     if not isinstance(value, str):
         return ""
     value = value.strip()
-    value = re.sub(r"[^\w,;\-]", "", value)
+    value = re.sub(r"[^\w,;\-\.]", "", value)
     return value[:500]
 
 
