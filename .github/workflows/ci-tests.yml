@@ -37,6 +37,9 @@ jobs:
         env:
             FUNCTIONS_WORKER_RUNTIME: python
             MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
+            AZURE_SEARCH_ENDPOINT: ${{secrets.AZURE_SEARCH_ENDPOINT}}
+            AZURE_SEARCH_API_KEY: ${{secrets.AZURE_SEARCH_API_KEY}}
+            AZURE_SEARCH_INDEX_NAME: ${{secrets.AZURE_SEARCH_INDEX_NAME}}
             AzureWebJobsStorage: UseDevelopmentStorage=true
         steps:
             - name: Checkout repo
