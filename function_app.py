@@ -8,6 +8,7 @@ from functions import (
     get_dependent_workloads,
     get_filters,
     get_resources_by_batch,
+    list_all_resources,
     search_resources,
 )
 from shared.azure_search_client import get_search_client
@@ -27,3 +28,4 @@ get_resources_by_batch.register_function(app, collection)
 search_resources.register_function(app, search_client)
 get_filters.register_function(app, collection, db["filter_values"])
 get_dependent_workloads.register_function(app, collection)
+list_all_resources.register_function(app, collection)

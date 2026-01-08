@@ -64,3 +64,37 @@ def create_json_response(data, status_code=200):
         headers={"Content-Type": "application/json"},
         status_code=status_code,
     )
+
+
+def parse_version(version_str):
+    """Parse a version string into a tuple of integers for comparison."""
+    try:
+        return tuple(int(x) for x in version_str.split("."))
+    except (ValueError, AttributeError):
+        return (0,)
+
+
+def get_latest_versions(resources):
+    """
+    Filter resources to return only the latest version of each resource.
+    Groups resources by 'id' and returns the one with the highest
+    'resource_version'.
+    """
+    latest_by_id = {}
+    for resource in resources:
+        resource_id = resource.get("id")
+        if not resource_id:
+            continue
+
+        current_version = parse_version(resource.get("resource_version", "0"))
+
+        if resource_id not in latest_by_id:
+            latest_by_id[resource_id] = resource
+        else:
+            existing_version = parse_version(
+                latest_by_id[resource_id].get("resource_version", "0")
+            )
+            if current_version > existing_version:
+                latest_by_id[resource_id] = resource
+
+    return list(latest_by_id.values())

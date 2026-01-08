@@ -162,6 +162,61 @@ GET /api/resources/get-dependent-workloads?id=x86-ubuntu-18.04-img
 ]
 ```
 
+### 5. List All Resources by gem5 Version
+
+**Endpoint**: `GET /api/resources/list-all-resources`
+
+Retrieve all resources that are compatible with a specific gem5 version. The endpoint performs prefix matching, so a version like `25.0.0.1` will match resources that have `25.0` or `25.0.0` in their `gem5_versions` field.
+
+**Parameters**:
+
+- `gem5-version` (required): The gem5 version to match against (e.g., "23.0", "25.0.0.1")
+- `latest-version` (optional): If set to `"true"`, returns only the latest compatible version of each resource instead of all compatible versions. Default is `"false"` (returns all versions).
+
+**Examples**:
+
+```bash
+# Get all resources compatible with gem5 version 23.0
+GET /api/resources/list-all-resources?gem5-version=23.0
+
+# Get all resources compatible with gem5 version 25.0.0.1
+# This will match resources with gem5_versions containing "25", "25.0", "25.0.0", or "25.0.0.1"
+GET /api/resources/list-all-resources?gem5-version=25.0.0.1
+
+# Get only the latest version of each resource compatible with gem5 version 23.0
+GET /api/resources/list-all-resources?gem5-version=23.0&latest-version=true
+```
+
+**Response Format**:
+
+```json
+[
+  {
+    "id": "riscv-ubuntu-20.04-boot",
+    "resource_version": "3.0.0",
+    "category": "workload",
+    "architecture": "RISCV",
+    "gem5_versions": ["23.0", "22.1", "22.0"],
+    // ... other resource fields
+  },
+  {
+    "id": "arm-hello64-static",
+    "resource_version": "1.0.0",
+    "category": "binary",
+    "architecture": "ARM",
+    "gem5_versions": ["23.0", "22.0"],
+    // ... other resource fields
+  }
+]
+```
+
+**Notes**:
+
+- Uses prefix matching: a parameter like `25.0.0.1` matches resources with `25.0`, `25.0.0`, or `25.0.0.1` in their `gem5_versions` field
+- Version parameter must have at least `major` version (e.g., `23.0`), gem5 major versions follow the format `release-year.release_num` (eg, "25.1" would be the second release of year 2025).
+- Returns all versions of resources that match
+- Returns an empty list if no resources match the specified gem5 version
+
 ## Development Setup
 
 ### Prerequisites
@@ -216,7 +271,8 @@ gem5-resources-api/
 │   ├── get_resources_by_batch.py
 │   ├── search_resources.py
 │   ├── get_filters.py
-│   └── get_dependent_workloads.py
+│   ├── get_dependent_workloads.py
+│   └── list_all_resources.py
 ├── shared/                      # Shared utilities
 │   ├── database.py             # Database connection & config
 │   └── utils.py                # Common utilities & validation
@@ -244,6 +300,7 @@ Functions:
     search_resources: [GET] http://localhost:7071/api/resources/search
     get_filters: [GET] http://localhost:7071/api/resources/filters
     get_dependent_workloads: [GET] http://localhost:7071/api/resources/get-dependent-workloads
+    list_all_resources: [GET] http://localhost:7071/api/resources/list-all-resources
 ```
 
 ### Testing
